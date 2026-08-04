@@ -3,24 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <title>Monitor y Global de Sismos | Terremotos Últimas 24h</title>
-    <meta name="description" content="Monitor Global de Sismos en tiempo real. Lista de terremotos últimas 24 horas. Chile, Perú, Argentina, Ecuador, Colombia.">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <style>
         body { margin: 0; background: #f0f0f0; color: #333; font-family: Arial, sans-serif; }
         header { background: #8B0000; color: #fff; padding: 15px; text-align: center; }
         header h1 { margin: 0; font-size: 24px; }
-        header p { margin: 5px 0 0 0; opacity: 0.9; }
         #map { height: 45vh; width: 100%; }
-      .container { padding: 15px; max-width: 1300px; margin: auto; }
-      .card { background: #fff; padding: 15px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-      .card h3 { margin-top: 0; color: #8B0000; border-bottom: 2px solid #8B0000; padding-bottom: 8px; }
+     .container { padding: 15px; max-width: 1300px; margin: auto; }
+     .card { background: #fff; padding: 15px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+     .card h3 { margin-top: 0; color: #8B0000; border-bottom: 2px solid #8B0000; padding-bottom: 8px; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th { background: #8B0000; color: #fff; padding: 10px; text-align: left; }
         td { padding: 8px; border-bottom: 1px solid #ddd; }
         tr:nth-child(even) { background: #f9f9f9; }
         tr.latam { background: #fff8e1!important; font-weight: bold; border-left: 4px solid #ffdd00; }
-      .mag { font-weight: bold; color: #d32f2f; font-size: 15px; }
-      .leyenda { font-size: 12px; margin-top: 10px; }
+     .mag { font-weight: bold; }
+     .leyenda { font-size: 12px; padding: 10px; background: #f9f9f9; border-radius: 5px; margin-bottom: 10px; }
+     .bolinha { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
     </style>
 </head>
 <body>
@@ -34,16 +33,16 @@
     <div class="container">
         <div class="card">
             <h3>📋 Últimos Terremotos >4.0 - Últimas 24 Horas</h3>
-            <div class="leyenda">🟡 Fila Amarilla = Latinoamérica | 🔴 Rojo = Resto del Mundo</div>
+            <div class="leyenda">
+                <span class="bolinha" style="background:red;"></span> Mag >= 6.0 
+                <span class="bolinha" style="background:orange;"></span> Mag 5.0 - 5.9
+                <span class="bolinha" style="background:yellow; border:1px solid #ccc;"></span> Mag 4.0 - 4.9
+                <b>|</b> <span style="border:2px solid #ffdd00; padding:0 3px;">Fila Amarilla = LATAM</span>
+            </div>
             <table>
                 <thead>
                     <tr>
-                        <th>Fecha y Hora UTC</th>
-                        <th>Lat</th>
-                        <th>Lon</th>
-                        <th>Prof km</th>
-                        <th>Mag</th>
-                        <th>Región</th>
+                        <th>Fecha y Hora UTC</th><th>Lat</th><th>Lon</th><th>Prof km</th><th>Mag</th><th>Región</th>
                     </tr>
                 </thead>
                 <tbody id="tabla-sismos">
@@ -63,6 +62,12 @@
     var map = L.map('map').setView([-20, -65], 3);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© OSM'}).addTo(map);
 
+    function getColor(mag) {
+        return mag >= 6.0? 'red' :
+               mag >= 5.0? 'orange' :
+                            'yellow';
+    }
+
     const hace24h = new Date();
     hace24h.setDate(hace24h.getDate() - 1);
     const fecha = hace24h.toISOString().split('T')[0];
@@ -80,18 +85,22 @@
             let hora = new Date(eq.properties.time).toISOString().replace('T',' ').split('.')[0];
             let esLATAM = ['Chile', 'Peru', 'Argentina', 'Ecuador', 'Colombia', 'Venezuela', 'Mexico'].some(p => lugar.includes(p));
 
-            let color = esLATAM? '#ffdd00' : 'red';
-            L.circleMarker([lat, lon], {radius: mag*2.5, color: color, fillOpacity: 0.8})
-        .bindPopup(`<b>Mag ${mag}</b><br>${lugar}<br>${hora} UTC`).addTo(map);
+            let color = getColor(mag);
+            let borderColor = esLATAM? '#ffdd00' : '#333'; // Borda amarela pra LATAM
+            let radio = mag * 3; // Quanto maior a mag, maior o círculo
+
+            L.circleMarker([lat, lon], {
+                radius: radio, 
+                color: borderColor, 
+                weight: esLATAM? 3 : 1,
+                fillColor: color,
+                fillOpacity: 0.8
+            }).bindPopup(`<b>Mag ${mag}</b><br>${lugar}<br>${hora} UTC`).addTo(map);
 
             htmlTabla += `
             <tr class="${esLATAM? 'latam':''}">
-                <td>${hora}</td>
-                <td>${lat}</td>
-                <td>${lon}</td>
-                <td>${prof}</td>
-                <td class="mag">${mag}</td>
-                <td>${lugar}</td>
+                <td>${hora}</td><td>${lat}</td><td>${lon}</td><td>${prof}</td>
+                <td class="mag" style="color:${color}">${mag}</td><td>${lugar}</td>
             </tr>`;
         });
         document.getElementById('tabla-sismos').innerHTML = htmlTabla;
