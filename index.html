@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centro de Monitoreo Sismos Global | Terremotos, Volcanes en Tiempo Real</title>
+    <meta name="description" content="Monitoreo de sismos, volcanes y huracanes en tiempo real. Foco: Chile, Perú, Argentina, Ecuador, Colombia, Venezuela.">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <style>
+        body { margin: 0; background: #000; color: #fff; font-family: Arial, sans-serif; }
+        header { background: #d32f2f; padding: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        header h1 { margin: 0; font-size: 24px; }
+        header p { margin: 5px 0 0 0; font-size: 14px; opacity: 0.9; }
+        #map { height: 60vh; width: 100%; }
+       .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; padding: 15px; }
+       .card { background: #111; padding: 15px; border-radius: 8px; border-left: 4px solid #d32f2f; }
+       .card h3 { margin: 0 0 10px 0; color: #ff5252; font-size: 16px; }
+       .lista-item { font-size: 13px; padding: 5px 0; border-bottom: 1px solid #222; }
+       .leyenda { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 5px; z-index: 1000; font-size: 12px; }
+        a { color: #ff5252; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🌍 Centro de Monitoreo Sismos Global</h1>
+        <p>Monitoreando la Tierra en Tiempo Real | Foco LATAM: Chile, Perú, Argentina, Ecuador, Colombia, Venezuela</p>
+    </header>
+
+    <div id="map"></div>
+    <div class="leyenda">
+        <p>🔴 Terremoto >4.0</p>
+        <p>🟠 Volcán Activo</p>
+        <p>🌀 Alerta Huracán</p>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <h3>🌎 Últimos Sismos >4.0</h3>
+            <div id="lista-sismos">Cargando datos EMSC...</div>
+        </div>
+        <div class="card">
+            <h3>🌋 Volcanes Activos LATAM</h3>
+            <div id="lista-volcanes">Cargando...</div>
+        </div>
+        <div class="card">
+            <h3>🌀 Alertas Meteorológicas</h3>
+            <div id="lista-huracanes">Cargando NOAA...</div>
+        </div>
+        <div class="card">
+            <h3>⚠️ Simulador de Sismo</h3>
+            <p>¿Qué pasaría si hay un sismo en tu ciudad?</p>
+            <a href="simulador.html">Probar Simulador →</a>
+        </div>
+    </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // 1. MAPA CENTRADO EN LATAM
+    var map = L.map('map').setView([-20, -65], 3);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© OSM'}).addTo(map);
+
+    // 2. CARGAR SISMOS EMSC
+    fetch('https://www.seismicportal.eu/fdsnws/event/1/query?format=json&limit=150')
+   .then(res => res.json())
+   .then(data => {
+        let html = "";
+        data.features.forEach(eq => {
+            if(eq.properties.mag >= 4.0) {
+                let esLATAM = ['Chile', 'Peru', 'Argentina', 'Ecuador', 'Colombia', 'Venezuela'].some(p => eq.properties.flynn_region.includes(p));
+                let color = esLATAM? '#ffdd00' : 'red';
+                let radio = eq.properties.mag * 2.5;
+
+                L.circleMarker([eq.geometry.coordinates[1], eq.geometry.coordinates[0]],
+                {radius: radio, color: color, fillOpacity: 0.7})
+               .bindPopup(`<b>Mag ${eq.properties.mag}</b><br>${eq.properties.flynn_region}<br>${new Date(eq.properties.time).toLocaleString('es-ES')}`).addTo(map);
+
+                if(esLATAM) {
+                    html += `<div class="lista-item">🚨 Mag ${eq.properties.mag} - ${eq.properties.flynn_region}</div>`;
+                }
+            }
+        });
+        document.getElementById('lista-sismos').innerHTML = html || "No hay sismos >4.0";
+    });
+
+    // 3. VOLCANES LATAM
+    const volcanes = [
+        {name: "Villarrica", country: "Chile", lat: -39.42, lng: -71.93},
+        {name: "Sabancaya", country: "Perú", lat: -15.78, lng: -71.85},
+        {name: "Copahue", country: "Argentina", lat: -37.85, lng: -71.17},
+        {name: "Cotopaxi", country: "Ecuador", lat: -0.68, lng: -78.43},
+        {name: "Nevado del Ruiz", country: "Colombia", lat: 4.89, lng: -75.32}
+    ];
+    let htmlVol = "";
+    volcanes.forEach(v => {
+        L.marker([v.lat, v.lng]).bindPopup(`<b>${v.name}</b><br>${v.country}`).addTo(map);
+        htmlVol += `<div class="lista-item">🟠 ${v.name} - ${v.country}</div>`;
+    });
+    document.getElementById('lista-volcanes').innerHTML = htmlVol;
+
+    // 4. HURACANES NOAA
+    fetch('https://api.weather.gov/alerts/active?event=Hurricane%20Warning,Tropical%20Storm%20Warning')
+   .then(res => res.json())
+   .then(data => {
+        let htmlHur = data.features.length === 0? "No hay alertas activas" : "";
+        data.features.forEach(f => { htmlHur += `<div class="lista-item">🌀 ${f.properties.event}</div>`; });
+        document.getElementById('lista-huracanes').innerHTML = htmlHur;
+    });
+</script>
+</body>
+</html>
