@@ -17,9 +17,8 @@
         td { padding: 8px; border-bottom: 1px solid #ddd; }
         tr:nth-child(even) { background: #f9f9f9; }
         tr.latam { background: #fff8e1!important; font-weight: bold; border-left: 4px solid #ffdd00; }
-     .mag { font-weight: bold; }
-     .leyenda { font-size: 12px; padding: 10px; background: #f9f9f9; border-radius: 5px; margin-bottom: 10px; }
-     .bolinha { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
+    .mag { font-weight: bold; }
+    .leyenda img { width: 20px; vertical-align: middle; margin: 0 5px; }
     </style>
 </head>
 <body>
@@ -34,9 +33,8 @@
         <div class="card">
             <h3>📋 Últimos Terremotos >4.0 - Últimas 24 Horas</h3>
             <div class="leyenda">
-                <span class="bolinha" style="background:red;"></span> Mag >= 6.0 
-                <span class="bolinha" style="background:orange;"></span> Mag 5.0 - 5.9
-                <span class="bolinha" style="background:yellow; border:1px solid #ccc;"></span> Mag 4.0 - 4.9
+                <img src="http://maps.google.com/mapfiles/kml/shapes/volcano.png"> Volcán Activo
+                <img src="http://maps.google.com/mapfiles/kml/shapes/triangle.png"> Terremoto Mag 4.0+
                 <b>|</b> <span style="border:2px solid #ffdd00; padding:0 3px;">Fila Amarilla = LATAM</span>
             </div>
             <table>
@@ -62,11 +60,23 @@
     var map = L.map('map').setView([-20, -65], 3);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© OSM'}).addTo(map);
 
-    function getColor(mag) {
-        return mag >= 6.0? 'red' :
-               mag >= 5.0? 'orange' :
-                            'yellow';
+    // ÍCONE DE TERREMOTO - TRIÂNGULO QUE MUDA DE COR
+    function getIconoSismo(mag) {
+        let color = mag >= 6.0? 'red' : mag >= 5.0? 'orange' : 'yellow';
+        return L.icon({
+            iconUrl: `http://maps.google.com/mapfiles/kml/shapes/triangle.png`,
+            iconSize: [mag * 4, mag * 4], // Tamanho aumenta com a magnitude
+            iconAnchor: [mag*2, mag*2],
+            className: color // Vamos pintar com CSS
+        });
     }
+
+    // ÍCONE DE VULCÃO
+    var iconoVolcan = L.icon({
+        iconUrl: 'http://maps.google.com/mapfiles/kml/shapes/volcano.png',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+    });
 
     const hace24h = new Date();
     hace24h.setDate(hace24h.getDate() - 1);
@@ -85,33 +95,33 @@
             let hora = new Date(eq.properties.time).toISOString().replace('T',' ').split('.')[0];
             let esLATAM = ['Chile', 'Peru', 'Argentina', 'Ecuador', 'Colombia', 'Venezuela', 'Mexico'].some(p => lugar.includes(p));
 
-            let color = getColor(mag);
-            let borderColor = esLATAM? '#ffdd00' : '#333'; // Borda amarela pra LATAM
-            let radio = mag * 3; // Quanto maior a mag, maior o círculo
-
-            L.circleMarker([lat, lon], {
-                radius: radio, 
-                color: borderColor, 
-                weight: esLATAM? 3 : 1,
-                fillColor: color,
-                fillOpacity: 0.8
-            }).bindPopup(`<b>Mag ${mag}</b><br>${lugar}<br>${hora} UTC`).addTo(map);
+            // USA ÍCONE TRIÂNGULO
+            L.marker([lat, lon], {icon: getIconoSismo(mag)})
+        .bindPopup(`<b>Mag ${mag}</b><br>${lugar}<br>${hora} UTC`).addTo(map);
 
             htmlTabla += `
             <tr class="${esLATAM? 'latam':''}">
                 <td>${hora}</td><td>${lat}</td><td>${lon}</td><td>${prof}</td>
-                <td class="mag" style="color:${color}">${mag}</td><td>${lugar}</td>
+                <td class="mag">${mag}</td><td>${lugar}</td>
             </tr>`;
         });
         document.getElementById('tabla-sismos').innerHTML = htmlTabla;
     });
 
+    // USA ÍCONE VULCÃO
     const volcanes = [
-        {name: "Villarrica", country: "Chile"}, {name: "Sabancaya", country: "Perú"},
-        {name: "Copahue", country: "Argentina"}, {name: "Cotopaxi", country: "Ecuador"},
-        {name: "Nevado del Ruiz", country: "Colombia"}
+        {name: "Villarrica", country: "Chile", lat: -39.42, lng: -71.93},
+        {name: "Sabancaya", country: "Perú", lat: -15.78, lng: -71.85},
+        {name: "Copahue", country: "Argentina", lat: -37.85, lng: -71.17},
+        {name: "Cotopaxi", country: "Ecuador", lat: -0.68, lng: -78.43},
+        {name: "Nevado del Ruiz", country: "Colombia", lat: 4.89, lng: -75.32}
     ];
-    document.getElementById('lista-volcanes').innerHTML = volcanes.map(v => `🟠 <b>${v.name}</b> - ${v.country}`).join('<br>');
+    let htmlVol = "";
+    volcanes.forEach(v => {
+        L.marker([v.lat, v.lng], {icon: iconoVolcan}).bindPopup(`<b>${v.name}</b><br>${v.country}`).addTo(map);
+        htmlVol += `🟠 <b>${v.name}</b> - ${v.country}<br>`;
+    });
+    document.getElementById('lista-volcanes').innerHTML = htmlVol;
 </script>
 </body>
 </html>
